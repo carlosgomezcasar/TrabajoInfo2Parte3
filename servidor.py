@@ -2,6 +2,8 @@ import socket
 import threading
 import json
 import os
+from datetime import datetime  # Para timestamp de las versiones
+from pila import Pila          # TAD Pila que has creado tú
 
 
 # FUNCIONES AUXILIARES PARA ENVÍO Y RECEPCIÓN DE MP3
@@ -59,12 +61,45 @@ def recibir_mp3(sock, carpeta_destino):
 
 # SERVIDOR
 
-USUARIOS_ACTIVOS = {}  # usuario -> True si está conectado
+USUARIOS_ACTIVOS = {}     # usuario -> True si está conectado
 BASE_DATOS = "datos_server"
+
+# NUEVO: diccionario de pilas de versiones por usuario
+PILAS_VERSIONES = {}      # usuario -> Pila()
+
+
+def reconstruir_pila_usuario(usuario, carpeta_usuario):
+    """Reconstruye la pila de versiones de un usuario leyendo los ficheros
+    biblioteca_*.json de su carpeta. La cima de la pila será la versión más reciente.
+    """
+    pila = Pila()
+
+    if not os.path.exists(carpeta_usuario):
+        os.makedirs(carpeta_usuario, exist_ok=True)
+
+    # Listar archivos que siguen el patrón de versión
+    nombres = [
+        nombre for nombre in os.listdir(carpeta_usuario)
+        if nombre.startswith("biblioteca_") and nombre.endswith(".json")
+    ]
+
+    # Ordenamos por nombre (como llevan timestamp en AAAA_MM_DD_HH_MM_SS, el orden
+    # lexicográfico coincide con el cronológico)
+    nombres.sort()
+
+    # Apilamos en orden: el último en apilar será la cima (versión más reciente)
+    for nombre in nombres:
+        ruta = os.path.join(carpeta_usuario, nombre)
+        pila.apilar(ruta)
+
+    PILAS_VERSIONES[usuario] = pila
+    return pila
 
 
 def manejar_cliente(sock, addr):
     print(f"[+] Conexión aceptada desde {addr}")
+
+    usuario = None
 
     try:
         # 1. LOGIN
@@ -90,12 +125,18 @@ def manejar_cliente(sock, addr):
         carpeta_usuario = os.path.join(BASE_DATOS, usuario)
         os.makedirs(carpeta_usuario, exist_ok=True)
 
-        # 2. ENVIAR METADATA
+        # NUEVO: reconstruir/crear la pila de versiones para este usuario
+        pila_versiones = PILAS_VERSIONES.get(usuario)
+        if pila_versiones is None:
+            pila_versiones = reconstruir_pila_usuario(usuario, carpeta_usuario)
+
+        # 2. ENVIAR METADATA ACTUAL
         ruta_json = os.path.join(carpeta_usuario, "biblioteca.json")
         if os.path.exists(ruta_json):
             with open(ruta_json, "r", encoding="utf-8") as f:
                 data = f.read()
         else:
+            # Biblioteca vacía inicial
             data = json.dumps({"canciones": [], "listas": []})
 
         data_bytes = data.encode()
@@ -108,9 +149,8 @@ def manejar_cliente(sock, addr):
         sock.sendall(f"NUM_MP3:{len(mp3s)}\n".encode())
 
         for mp3 in mp3s:
-            ruta = os.path.join(carpeta_usuario, mp3)
-            enviar_mp3(sock, ruta)
-
+            ruta_mp3 = os.path.join(carpeta_usuario, mp3)
+            enviar_mp3(sock, ruta_mp3)
 
         # 4. RECIBIR NUEVA METADATA DESDE EL CLIENTE
         linea = recibir_linea(sock)
@@ -122,12 +162,29 @@ def manejar_cliente(sock, addr):
             raise Exception("Protocolo inválido en metadata")
 
         tam = int(header.split(":")[1])
-        contenido = sock.recv(tam).decode()
+        contenido_nuevo = sock.recv(tam).decode()
 
-        # Guardamos metadata
+        # NUEVO: antes de sobrescribir biblioteca.json, guardar versión anterior (si existe)
+        if os.path.exists(ruta_json):
+            with open(ruta_json, "r", encoding="utf-8") as f:
+                contenido_anterior = f.read()
+
+            # Solo guardamos versión si había algo (no está vacío del todo)
+            if contenido_anterior.strip():
+                timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+                nombre_version = f"biblioteca_{timestamp}.json"
+                ruta_version = os.path.join(carpeta_usuario, nombre_version)
+
+                # Guardar contenido anterior en el fichero de versión
+                with open(ruta_version, "w", encoding="utf-8") as f:
+                    f.write(contenido_anterior)
+
+                # Apilar la ruta de la nueva versión en la pila del usuario
+                pila_versiones.apilar(ruta_version)
+
+        # Ahora sí, guardamos la nueva metadata como versión actual
         with open(ruta_json, "w", encoding="utf-8") as f:
-            f.write(contenido)
-
+            f.write(contenido_nuevo)
 
         # 5. RECIBIR NÚMERO DE MP3
         linea = recibir_linea(sock)
@@ -139,7 +196,6 @@ def manejar_cliente(sock, addr):
         # Recibir MP3 uno por uno
         for _ in range(n):
             recibir_mp3(sock, carpeta_usuario)
-
 
         # 6. LOGOUT
         linea = recibir_linea(sock)
