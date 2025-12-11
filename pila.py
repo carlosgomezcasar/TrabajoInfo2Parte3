@@ -1,5 +1,3 @@
-# pila.py
-
 class NodoPila:
     """Nodo para la pila enlazada."""
 

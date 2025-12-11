@@ -1,5 +1,3 @@
-# lista_historial.py
-
 class NodoHistorial:
     """Nodo de una lista doblemente enlazada para el historial de estados."""
 
