@@ -6,7 +6,7 @@ from musica.plataforma import PlataformaMusical
 from musica.cancion import Cancion
 from musica.lista_reproduccion import ListaReproduccion
 from app import menu_canciones, menu_listas, menu_reproduccion
-from lista_historial import HistorialEstados  # TAD de lista doblemente enlazada para historial
+from lista_historial import HistorialEstados
 
 
 # FUNCIONES AUXILIARES PARA ENVÍO Y RECEPCIÓN DE MP3
@@ -143,7 +143,6 @@ def main():
                 historial.registrar_nuevo_estado(copy.deepcopy(plataforma))
 
         elif opc == "3":
-            # La reproducción NO debería cambiar la biblioteca
             menu_reproduccion(plataforma)
 
         elif opc == "4":

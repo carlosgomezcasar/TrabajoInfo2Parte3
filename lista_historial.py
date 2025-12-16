@@ -1,6 +1,4 @@
 class NodoHistorial:
-    """Nodo de una lista doblemente enlazada para el historial de estados."""
-
     def __init__(self, dato, anterior=None, siguiente=None):
         self.dato = dato
         self.anterior = anterior
@@ -11,15 +9,13 @@ class HistorialEstados:
     """Lista doblemente enlazada con puntero 'actual' para gestionar
     deshacer/rehacer estados de la biblioteca.
     """
-
     def __init__(self):
-        self.primero = None  # Primer nodo de la lista
-        self.ultimo = None   # Último nodo de la lista
-        self.actual = None   # Nodo que representa el estado actual
-        self._num_nodos = 0
+        self.primero = None
+        self.ultimo = None
+        self.actual = None
+        self.size = 0
 
     def esta_vacio(self):
-        """Devuelve True si el historial no tiene ningún estado."""
         return self.primero is None
 
     def inicializar_con_estado(self, estado):
@@ -31,7 +27,7 @@ class HistorialEstados:
         self.primero = nodo
         self.ultimo = nodo
         self.actual = nodo
-        self._num_nodos = 1
+        self.size = 1
 
     def _eliminar_nodos_despues_de(self, nodo):
         """Elimina todos los nodos que vienen después de 'nodo' (hacia la derecha).
@@ -40,27 +36,22 @@ class HistorialEstados:
         actual = nodo.siguiente
         while actual is not None:
             siguiente = actual.siguiente
-            # Rompemos enlaces para ayudar al recolector de basura
             actual.anterior = None
             actual.siguiente = None
             actual = siguiente
 
         nodo.siguiente = None
         self.ultimo = nodo
-        # Recalcular _num_nodos puede hacerse recorriendo desde primero,
-        # o ir decrementando en este método. Aquí lo haremos recorriendo.
         self._recalcular_num_nodos()
 
     def _recalcular_num_nodos(self):
-        """Recuenta el número de nodos de la lista.
-        (No es muy costoso porque la lista no será gigante).
-        """
+        """Recuenta el número de nodos de la lista."""
         contador = 0
         actual = self.primero
         while actual is not None:
             contador += 1
             actual = actual.siguiente
-        self._num_nodos = contador
+        self.size = contador
 
     def registrar_nuevo_estado(self, estado):
         """Registra un nuevo estado de la biblioteca tras una modificación.
@@ -82,7 +73,7 @@ class HistorialEstados:
         self.ultimo.siguiente = nuevo
         self.ultimo = nuevo
         self.actual = nuevo
-        self._num_nodos += 1
+        self.size += 1
 
     def puede_deshacer(self):
         """Devuelve True si hay un estado anterior al actual."""
@@ -120,4 +111,4 @@ class HistorialEstados:
 
     def __len__(self):
         """Permite usar len(historial)."""
-        return self._num_nodos
+        return self.size

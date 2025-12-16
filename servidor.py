@@ -3,7 +3,7 @@ import threading
 import json
 import os
 from datetime import datetime  # Para timestamp de las versiones
-from pila import Pila          # TAD Pila que has creado tú
+from pila import Pila
 
 
 # FUNCIONES AUXILIARES PARA ENVÍO Y RECEPCIÓN DE MP3
@@ -64,7 +64,7 @@ def recibir_mp3(sock, carpeta_destino):
 USUARIOS_ACTIVOS = {}     # usuario -> True si está conectado
 BASE_DATOS = "datos_server"
 
-# NUEVO: diccionario de pilas de versiones por usuario
+# Diccionario de pilas de versiones por usuario
 PILAS_VERSIONES = {}      # usuario -> Pila()
 
 
@@ -84,7 +84,7 @@ def reconstruir_pila_usuario(usuario, carpeta_usuario):
     ]
 
     # Ordenamos por nombre (como llevan timestamp en AAAA_MM_DD_HH_MM_SS, el orden
-    # lexicográfico coincide con el cronológico)
+    # coincide con el cronológico)
     nombres.sort()
 
     # Apilamos en orden: el último en apilar será la cima (versión más reciente)
@@ -125,7 +125,7 @@ def manejar_cliente(sock, addr):
         carpeta_usuario = os.path.join(BASE_DATOS, usuario)
         os.makedirs(carpeta_usuario, exist_ok=True)
 
-        # NUEVO: reconstruir/crear la pila de versiones para este usuario
+        # NUEVO: Reconstruir/crear la pila de versiones para este usuario
         pila_versiones = PILAS_VERSIONES.get(usuario)
         if pila_versiones is None:
             pila_versiones = reconstruir_pila_usuario(usuario, carpeta_usuario)
